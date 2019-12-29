@@ -139,13 +139,10 @@ func (zh *ZhiHu) continueGetFollowee(followeeFirstURLToken, followerFirstURLToke
 
 	// 遍历 "关注了"
 	for pf, err = zh.getFolloweeOrFollower(followeeFirstURLToken); err == nil && len(pf.Data) != 0; pf, err = zh.getFolloweeOrFollower(nextURL) {
-		logs.Debug("current followee data len: %d", len(pf.Data))
-
 		urlTokens := make([]string, 0)
 		for _, follow := range pf.Data {
 			urlTokens = append(urlTokens, follow.URLToken)
 		}
-		logs.Debug("followee data: %v", urlTokens)
 
 		if err := zh.dataSource.InsertURLTokens(urlTokens); err != nil {
 			logs.Error("insert followee error: %s", err)
@@ -159,13 +156,10 @@ func (zh *ZhiHu) continueGetFollowee(followeeFirstURLToken, followerFirstURLToke
 
 	// 遍历 "关注者"
 	for pf, err = zh.getFolloweeOrFollower(followerFirstURLToken); err == nil && len(pf.Data) != 0; pf, err = zh.getFolloweeOrFollower(nextURL) {
-		logs.Debug("current follower data len: %d", len(pf.Data))
-
 		urlTokens := make([]string, 0)
 		for _, follow := range pf.Data {
 			urlTokens = append(urlTokens, follow.URLToken)
 		}
-		logs.Debug("follower data: %v", urlTokens)
 
 		if err := zh.dataSource.InsertURLTokens(urlTokens); err != nil {
 			logs.Error("insert follower error: %s", err)
