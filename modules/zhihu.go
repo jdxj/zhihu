@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"time"
 	"zhihu/utils"
 
 	"github.com/astaxie/beego/logs"
@@ -92,22 +93,22 @@ func (zh *ZhiHu) CollectURLToken() {
 
 	var offset int
 	for {
-		// todo: 测试, 先抓一个人的 "关注了" 和 "关注者"
-		if offset > 1 {
-			break
-		}
-
 		select {
 		case <-zh.stop:
-			logs.Info("receive stop signal")
+			logs.Info("stop collect url token")
 			return
 		default:
+		}
+
+		// todo: 测试, 先抓一个人的 "关注了" 和 "关注者"
+		if offset >= 3 {
+			return
 		}
 
 		urlToken, err := ds.GetURLToken(offset)
 		if err != nil {
 			logs.Error("%s", err)
-			break
+			return
 		}
 
 		followeeFirstURLToken := fmt.Sprintf(FolloweeAPI, urlToken)
@@ -116,7 +117,6 @@ func (zh *ZhiHu) CollectURLToken() {
 
 		offset++
 	}
-	logs.Debug("finish")
 }
 
 func (zh *ZhiHu) Stop() {
@@ -128,58 +128,66 @@ func (zh *ZhiHu) Stop() {
 	logs.Info("zhihu stop finish")
 }
 
-func (zh *ZhiHu) continueGetFollowee(followeeFirstURLToken, followerFirstURLToken string) {
-	const limit = 10240
-	urlTokens := make([]string, limit)
+func (zh *ZhiHu) Wait() <-chan struct{} {
+	return zh.stopFinish
+}
 
+func (zh *ZhiHu) continueGetFollowee(followeeFirstURLToken, followerFirstURLToken string) {
 	var pf *PagingFollowee
 	var err error
 	var nextURL string
 
 	// 遍历 "关注了"
 	for pf, err = zh.getFolloweeOrFollower(followeeFirstURLToken); err == nil && len(pf.Data) != 0; pf, err = zh.getFolloweeOrFollower(nextURL) {
+		logs.Debug("current followee data len: %d", len(pf.Data))
+
+		urlTokens := make([]string, 0)
 		for _, follow := range pf.Data {
 			urlTokens = append(urlTokens, follow.URLToken)
-
-			if len(urlTokens) >= limit {
-				if err := zh.dataSource.InsertURLTokens(urlTokens); err != nil {
-					logs.Error("followee error: %s", err)
-				}
-				urlTokens = urlTokens[:]
-			}
 		}
+		logs.Debug("followee data: %v", urlTokens)
+
+		if err := zh.dataSource.InsertURLTokens(urlTokens); err != nil {
+			logs.Error("insert followee error: %s", err)
+		}
+
 		nextURL = pf.Paging.Next
 	}
 	if err != nil {
-		logs.Error("followee error: %s", err)
+		logs.Error("get followee error: %s", err)
 	}
 
 	// 遍历 "关注者"
 	for pf, err = zh.getFolloweeOrFollower(followerFirstURLToken); err == nil && len(pf.Data) != 0; pf, err = zh.getFolloweeOrFollower(nextURL) {
+		logs.Debug("current follower data len: %d", len(pf.Data))
+
+		urlTokens := make([]string, 0)
 		for _, follow := range pf.Data {
 			urlTokens = append(urlTokens, follow.URLToken)
+		}
+		logs.Debug("follower data: %v", urlTokens)
 
-			if len(urlTokens) >= limit {
-				if err := zh.dataSource.InsertURLTokens(urlTokens); err != nil {
-					logs.Error("follower error: %s", err)
-				}
-			}
+		if err := zh.dataSource.InsertURLTokens(urlTokens); err != nil {
+			logs.Error("insert follower error: %s", err)
 		}
 
 		nextURL = pf.Paging.Next
 	}
 	if err != nil {
-		logs.Error("follower error: %s", err)
-	}
-
-	if err := zh.dataSource.InsertURLTokens(urlTokens); err != nil {
-		logs.Error("%s", err)
+		logs.Error("get follower error: %s", err)
 	}
 }
 
 func (zh *ZhiHu) getFolloweeOrFollower(url string) (*PagingFollowee, error) {
 	// 避免过快
-	utils.Pause5s()
+	timer := time.NewTicker(5 * time.Second)
+	defer timer.Stop()
+
+	select {
+	case <-zh.stop:
+		return nil, fmt.Errorf("stop get followee or follower")
+	case <-timer.C:
+	}
 
 	req, err := utils.NewRequestWithUserAgent("GET", url, nil)
 	if err != nil {

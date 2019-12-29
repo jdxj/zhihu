@@ -36,5 +36,7 @@ func main() {
 	select {
 	case <-sigs:
 		logs.Info("receive int signal")
+	case <-zhiHu.Wait():
+		logs.Info("finish in normal")
 	}
 }
