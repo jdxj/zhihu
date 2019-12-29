@@ -1,6 +1,6 @@
-localName = zhihu
-linuxName = $(localName)_linux
-macName = $(localName)_mac
+localName = zhihu.out
+linuxName = zhihu_linux.out
+macName = zhihu_mac.out
 
 local: clean
 	go build -ldflags '-s -w' -o $(localName) *.go
