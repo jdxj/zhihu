@@ -20,6 +20,7 @@ func ReadConfig(path string) (*Config, error) {
 type Config struct {
 	MySQL *MySQLConfig `json:"mysql"`
 	ZhiHu *ZhiHuConfig `json:"zhiHu"`
+	Email *EmailConfig `json:"email"`
 }
 
 type MySQLConfig struct {
@@ -33,4 +34,9 @@ type ZhiHuConfig struct {
 	Mode        int    `json:"mode"`
 	Cookie      string `json:"cookie"`
 	OwnURLToken string `json:"ownURLToken"`
+}
+
+type EmailConfig struct {
+	User  string `json:"user"`
+	Token string `json:"token"`
 }

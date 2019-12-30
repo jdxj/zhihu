@@ -1,13 +1,17 @@
 {
   "mysql": {
     "host": "mysql.aaronkir.xyz",
-    "user": "",
+    "user": "root",
     "password": "",
     "database": "zhihu"
   },
   "zhiHu": {
     "mode": 1,
-    "cookie": "_zap=3baf52f6-001c-490c-9b49-f5b0b679830f; d_c0=\"ACCupFFVVRCPTseWe-ZtkZtV5yrwToPmifY=|1573384526\"; z_c0=\"2|1:0|10:1573482840|4:z_c0|92:Mi4xRElwc0FRQUFBQUFBSUs2a1VWVlZFQ1lBQUFCZ0FsVk5XTC0yWGdDbnpwbWRMbkhHRXNUUnlBYzYxSUxPN3o4UWF3|0fe0d80b18fbaf0bae6b64813b0cd3190781901aae4c944eaa3ba75897230f46\"; q_c1=ccbad992d3da40769e559b6e9e3f0507|1576986457000|1574258452000; _xsrf=8f453f92-02c5-440c-a6d0-f90573e0e2e8; Hm_lvt_98beee57fd2ef70ccdd5ca52b9740c49=1576998729,1577026553,1577535475,1577587261; tst=h; tshl=; __utma=51854390.1988354857.1577590387.1577590387.1577590387.1; __utmc=51854390; __utmz=51854390.1577590387.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); __utmv=51854390.100-1|2=registration_date=20150502=1^3=entry_date=20150502=1; KLBRSID=ed2ad9934af8a1f80db52dcb08d13344|1577609799|1577606303; tgw_l7_route=116a747939468d99065d12a386ab1c5f; Hm_lpvt_98beee57fd2ef70ccdd5ca52b9740c49=1577611745",
+    "cookie": "",
     "ownURLToken": "wang-you-qiang-36"
+  },
+  "email": {
+    "user": "985759262@qq.com",
+    "token": ""
   }
 }

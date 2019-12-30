@@ -93,3 +93,26 @@ func urlQueryUnescape(rawURL string) string {
 	}
 	return result
 }
+
+func TestEmailSender_SendEmail(t *testing.T) {
+	config, err := getTestConfig()
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
+	ec := config.Email
+
+	es, err := NewEmailSender(ec)
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
+
+	msg := &EmailMsg{
+		From:    "985759262@qq.com",
+		To:      "985759262@qq.com",
+		Subject: "test zhihu send email",
+		Content: "ok",
+	}
+	if err := es.SendEmail(msg); err != nil {
+		t.Fatalf("%s", err)
+	}
+}
