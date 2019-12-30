@@ -17,8 +17,9 @@ const (
 )
 
 const (
-	FolloweeAPI = `https://www.zhihu.com/api/v4/members/%s/followees?include=data[*].answer_count,articles_count,gender,follower_count,is_followed,is_following,badge[?(type=best_answerer)].topics&offset=0&limit=20`
-	FollowerAPI = `https://www.zhihu.com/api/v4/members/%s/followers?include=data[*].answer_count,articles_count,gender,follower_count,is_followed,is_following,badge[?(type=best_answerer)].topics&offset=0&limit=20`
+	FolloweeAPI    = `https://www.zhihu.com/api/v4/members/%s/followees?include=data[*].answer_count,articles_count,gender,follower_count,is_followed,is_following,badge[?(type=best_answerer)].topics&offset=0&limit=20`
+	FollowerAPI    = `https://www.zhihu.com/api/v4/members/%s/followers?include=data[*].answer_count,articles_count,gender,follower_count,is_followed,is_following,badge[?(type=best_answerer)].topics&offset=0&limit=20`
+	UserSumInfoAPI = `https://www.zhihu.com/api/v4/members/%s?include=allow_message,is_followed,is_following,is_org,is_blocking,employments,answer_count,follower_count,articles_count,gender,badge[?(type=best_answerer)].topics`
 )
 
 func NewZhiHu(zhConfig *ZhiHuConfig, mysqlConfig *MySQLConfig) (*ZhiHu, error) {
@@ -228,11 +229,14 @@ type Followee struct {
 	IsAdvertiser      bool           `json:"is_advertiser"`
 	VIPInfo           *VIPInfo       `json:"vip_info"`
 	Badge             []*Badge       `json:"badge"`
+	AllowMessage      bool           `json:"allow_message"`
 	IsFollowing       bool           `json:"is_following"`
 	IsFollowed        bool           `json:"is_followed"`
+	IsBlocking        bool           `json:"is_blocking"`
 	FollowerCount     int            `json:"follower_count"`
 	AnswerCount       int            `json:"answer_count"`
 	ArticlesCount     int            `json:"articles_count"`
+	Employments       []*Employment  `json:"employments"`
 	SelfRecommend     *SelfRecommend `json:"self_recommend"`
 }
 
@@ -246,5 +250,25 @@ type Badge struct {
 	Description string `json:"description"`
 }
 
+type Employment struct {
+	Job     *Job     `json:"job"`
+	Company *Company `json:"company"`
+}
+
+type Job struct {
+	ID        string `json:"id"`
+	Type      string `json:"type"`
+	URL       string `json:"url"`
+	Name      string `json:"name"`
+	AvatarURL string `json:"avatar_url"`
+}
+
+type Company struct {
+	ID        string `json:"id"`
+	Type      string `json:"type"`
+	URL       string `json:"url"`
+	Name      string `json:"name"`
+	AvatarURL string `json:"avatar_url"`
+}
 type SelfRecommend struct {
 }

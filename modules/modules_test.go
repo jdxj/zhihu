@@ -73,17 +73,22 @@ func TestNewZhiHu(t *testing.T) {
 }
 
 func TestURLParse(t *testing.T) {
-	rawURL := "https://www.zhihu.com/api/v4/members/wang-you-qiang-36/followees?include=data%5B*%5D.answer_count%2Carticles_count%2Cgender%2Cfollower_count%2Cis_followed%2Cis_following%2Cbadge%5B%3F(type%3Dbest_answerer)%5D.topics&offset=0&limit=20"
+	rawURL1 := "https://www.zhihu.com/api/v4/members/wang-you-qiang-36/followees?include=data%5B*%5D.answer_count%2Carticles_count%2Cgender%2Cfollower_count%2Cis_followed%2Cis_following%2Cbadge%5B%3F(type%3Dbest_answerer)%5D.topics&offset=0&limit=20"
 	rawURL2 := "https://www.zhihu.com/api/v4/members/wang-you-qiang-36/followers?include=data%5B*%5D.answer_count%2Carticles_count%2Cgender%2Cfollower_count%2Cis_followed%2Cis_following%2Cbadge%5B%3F(type%3Dbest_answerer)%5D.topics&offset=0&limit=20"
-	str, err := url.QueryUnescape(rawURL)
-	if err != nil {
-		t.Fatalf("%s", err)
-	}
-	fmt.Println(str)
+	rawURL3 := "https://www.zhihu.com/api/v4/members/eluosixiongmei?include=allow_message%2Cis_followed%2Cis_following%2Cis_org%2Cis_blocking%2Cemployments%2Canswer_count%2Cfollower_count%2Carticles_count%2Cgender%2Cbadge%5B%3F(type%3Dbest_answerer)%5D.topics"
 
-	str, err = url.QueryUnescape(rawURL2)
+	unescaped := urlQueryUnescape(rawURL1)
+	fmt.Println("rawURL1", unescaped)
+	unescaped = urlQueryUnescape(rawURL2)
+	fmt.Println("rawURL2", unescaped)
+	unescaped = urlQueryUnescape(rawURL3)
+	fmt.Println("rawURL3", unescaped)
+}
+
+func urlQueryUnescape(rawURL string) string {
+	result, err := url.QueryUnescape(rawURL)
 	if err != nil {
-		t.Fatalf("%s", err)
+		panic(err)
 	}
-	fmt.Println(str)
+	return result
 }
