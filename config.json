@@ -1,8 +1,8 @@
 {
   "mysql": {
     "host": "mysql.aaronkir.xyz",
-    "user": "root",
-    "password": "18r10q4jhy",
+    "user": "",
+    "password": "",
     "database": "zhihu"
   },
   "zhiHu": {
