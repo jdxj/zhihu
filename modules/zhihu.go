@@ -1,6 +1,7 @@
 package modules
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -81,33 +82,24 @@ func (zh *ZhiHu) CollectURLToken() {
 	ds := zh.dataSource
 	defer ds.db.Close()
 
-	// 先清除一次
-	if err := ds.Truncate(urlTokenTable); err != nil {
-		logs.Error("%s", err)
-		return
-	}
-
 	if err := ds.InsertURLTokens([]string{zh.config.OwnURLToken}); err != nil {
 		logs.Error("%s", err)
 		return
 	}
 
-	var offset int
-	for {
+	for offset := uint64(0); ; offset++ {
 		select {
 		case <-zh.stop:
-			logs.Info("stop collect url token")
+			logs.Info("stop collect url token, offset: %d", offset)
 			return
 		default:
 		}
 
-		// todo: 测试, 先抓一个人的 "关注了" 和 "关注者"
-		if offset >= 3 {
-			return
-		}
-
 		urlToken, err := ds.GetURLToken(offset)
-		if err != nil {
+		if err == sql.ErrNoRows {
+			logs.Info("url token get gone")
+			return
+		} else if err != nil {
 			logs.Error("%s", err)
 			return
 		}
@@ -115,8 +107,6 @@ func (zh *ZhiHu) CollectURLToken() {
 		followeeFirstURLToken := fmt.Sprintf(FolloweeAPI, urlToken)
 		followerFirstURLToken := fmt.Sprintf(FollowerAPI, urlToken)
 		zh.continueGetFollowee(followeeFirstURLToken, followerFirstURLToken)
-
-		offset++
 	}
 }
 

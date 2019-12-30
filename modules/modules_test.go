@@ -7,6 +7,7 @@ import (
 )
 
 const configPath = "/home/jdxj/workspace/zhihu/config.json"
+const configPath2 = "/Users/okni-12/workspace/zhihu/config.json"
 
 func TestReadConfig(t *testing.T) {
 	config, err := ReadConfig(configPath)
@@ -18,7 +19,7 @@ func TestReadConfig(t *testing.T) {
 }
 
 func getTestConfig() (*Config, error) {
-	return ReadConfig(configPath)
+	return ReadConfig(configPath2)
 }
 
 func TestDataSource(t *testing.T) {
@@ -41,15 +42,15 @@ func TestDataSource(t *testing.T) {
 		t.Fatalf("%s", err)
 	}
 
-	urlToken, err := ds.GetURLToken(0)
+	urlToken, err := ds.GetURLToken(20000)
 	if err != nil {
 		t.Fatalf("%s", err)
 	}
 	fmt.Println(urlToken)
 
-	if err := ds.Truncate(urlTokenTable); err != nil {
-		t.Fatalf("%s", err)
-	}
+	//if err := ds.Truncate(urlTokenTable); err != nil {
+	//	t.Fatalf("%s", err)
+	//}
 }
 
 func TestNewZhiHu(t *testing.T) {

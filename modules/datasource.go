@@ -75,8 +75,8 @@ func (ds *DataSource) InsertURLTokens(urlTokens []string) error {
 	return nil
 }
 
-func (ds *DataSource) GetURLToken(offset int) (string, error) {
-	query := fmt.Sprintf(`SELECT urlToken FROM %s LIMIT ?,1`, urlTokenTable)
+func (ds *DataSource) GetURLToken(offset uint64) (string, error) {
+	query := fmt.Sprintf(`SELECT urlToken FROM %s ORDER BY id LIMIT ?,1`, urlTokenTable)
 	row := ds.db.QueryRow(query, offset)
 
 	var urlToken string
