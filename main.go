@@ -29,6 +29,7 @@ func main() {
 	}
 	defer zhiHu.Stop()
 
+	logs.Info("zhihu start")
 	go zhiHu.CollectURLToken()
 
 	sigs := make(chan os.Signal, 2)

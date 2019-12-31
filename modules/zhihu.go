@@ -95,33 +95,91 @@ func (zh *ZhiHu) CollectURLToken() {
 	}()
 
 	ds := zh.dataSource
+	// todo: 是否在这里关闭数据库?
 	defer ds.db.Close()
 
+	// 确保有一条数据
 	if err := ds.InsertURLTokens([]string{zh.config.OwnURLToken}); err != nil {
 		logs.Error("%s", err)
 		return
 	}
 
-	for offset := uint64(0); ; offset++ {
+	var offset uint64
+	var startFolloweeURL string
+	var startFollowerURL string
+
+	// 初始化进度
+	utp, err := ds.GetURLTokenProgress()
+	if err == sql.ErrNoRows { // 从未保存过记录
+		offset = 0
+		startFolloweeURL = fmt.Sprintf(FolloweeAPI, zh.config.OwnURLToken)
+		startFollowerURL = fmt.Sprintf(FollowerAPI, zh.config.OwnURLToken)
+	} else if err != nil {
+		logs.Error("error when get urlTokenProgress: %s", err)
+		return
+	} else {
+		if offset, err = ds.GetURLTokenOffset(utp.URLTokenID); err != nil {
+			logs.Error("error when get urlTokenOffset: %s", err)
+			return
+		}
+
+		startFolloweeURL = utp.NextFolloweeURL
+		startFollowerURL = utp.NextFollowerURL
+
+		logs.Debug("load urlTokenProgress success")
+	}
+
+loop:
+	for {
+		// 这里为 start* 赋值只是为了记录进度
+		startFolloweeURL = zh.continueGetFollowee(startFolloweeURL)
+		startFollowerURL = zh.continueGetFollowee(startFollowerURL)
+
 		select {
 		case <-zh.stop:
 			logs.Info("stop collect url token, offset: %d", offset)
-			return
+			break loop
 		default:
 		}
 
+		offset++
 		urlToken, err := ds.GetURLToken(offset)
 		if err == sql.ErrNoRows {
 			logs.Info("url token get gone")
-			return
+			break loop
 		} else if err != nil {
 			logs.Error("%s", err)
-			return
+			break loop
 		}
 
-		followeeFirstURLToken := fmt.Sprintf(FolloweeAPI, urlToken)
-		followerFirstURLToken := fmt.Sprintf(FollowerAPI, urlToken)
-		zh.continueGetFollowee(followeeFirstURLToken, followerFirstURLToken)
+		startFolloweeURL = fmt.Sprintf(FolloweeAPI, urlToken.URLToken)
+		startFollowerURL = fmt.Sprintf(FollowerAPI, urlToken.URLToken)
+	}
+
+	// 保存进度
+	urlToken, err := ds.GetURLToken(offset)
+	if err == sql.ErrNoRows {
+		urlToken = &URLToken{
+			ID: 0, // 从头开始?
+		}
+		startFolloweeURL = fmt.Sprintf(FolloweeAPI, zh.config.OwnURLToken)
+		startFollowerURL = fmt.Sprintf(FollowerAPI, zh.config.OwnURLToken)
+		logs.Warn("url token get gone when will save urlTokenProgress")
+	} else if err != nil {
+		urlToken = &URLToken{
+			ID: 0, // 从头开始?
+		}
+		startFolloweeURL = fmt.Sprintf(FolloweeAPI, zh.config.OwnURLToken)
+		startFollowerURL = fmt.Sprintf(FollowerAPI, zh.config.OwnURLToken)
+		logs.Error("url token get gone when will save urlTokenProgress: %s", err)
+	}
+
+	urlTokenProgress := &URLTokenProgress{}
+	urlTokenProgress.URLTokenID = urlToken.ID
+	urlTokenProgress.NextFolloweeURL = startFolloweeURL
+	urlTokenProgress.NextFollowerURL = startFollowerURL
+	if err := ds.InsertURLTokenProgress(urlTokenProgress); err != nil {
+		logs.Error("error when insert urlTokenProgress: %s", err)
 	}
 }
 
@@ -138,14 +196,20 @@ func (zh *ZhiHu) Wait() <-chan struct{} {
 	return zh.stopFinish
 }
 
-func (zh *ZhiHu) continueGetFollowee(followeeFirstURLToken, followerFirstURLToken string) {
+func (zh *ZhiHu) continueGetFollowee(startURL string) string {
 	var pf *PagingFollowee
 	var err error
 	var nextURL string
+	urlTokens := make([]string, 20)
+	urlTokens = urlTokens[:0]
 
-	// 遍历 "关注了"
-	for pf, err = zh.getFolloweeOrFollower(followeeFirstURLToken); err == nil && len(pf.Data) != 0; pf, err = zh.getFolloweeOrFollower(nextURL) {
-		urlTokens := make([]string, 0)
+	// 使用 ticker 而不使用 timer 使得每次获取数据的时间近似
+	ticker := time.NewTicker(zh.pauseDuration)
+	defer ticker.Stop()
+
+	// 如果接收到 stop 信号, 那么起码把当前 url 的数据获取完成再停止
+loop:
+	for pf, err = zh.getFolloweeOrFollower(startURL); err == nil && len(pf.Data) != 0; pf, err = zh.getFolloweeOrFollower(nextURL) {
 		for _, follow := range pf.Data {
 			urlTokens = append(urlTokens, follow.URLToken)
 		}
@@ -153,42 +217,28 @@ func (zh *ZhiHu) continueGetFollowee(followeeFirstURLToken, followerFirstURLToke
 		if err := zh.dataSource.InsertURLTokens(urlTokens); err != nil {
 			logs.Error("insert followee error: %s", err)
 		}
-
+		urlTokens = urlTokens[:0]
 		nextURL = pf.Paging.Next
+
+		select {
+		case <-zh.stop:
+			logs.Warn("stop continue get followee or follower")
+			break loop
+		case <-ticker.C:
+		}
 	}
 	if err != nil {
 		logs.Error("get followee error: %s", err)
 	}
 
-	// 遍历 "关注者"
-	for pf, err = zh.getFolloweeOrFollower(followerFirstURLToken); err == nil && len(pf.Data) != 0; pf, err = zh.getFolloweeOrFollower(nextURL) {
-		urlTokens := make([]string, 0)
-		for _, follow := range pf.Data {
-			urlTokens = append(urlTokens, follow.URLToken)
-		}
-
-		if err := zh.dataSource.InsertURLTokens(urlTokens); err != nil {
-			logs.Error("insert follower error: %s", err)
-		}
-
-		nextURL = pf.Paging.Next
+	// 如果某个人的 "关注了" 或 "关注者" 为0, 那么需要给其初始值
+	if nextURL == "" {
+		nextURL = startURL
 	}
-	if err != nil {
-		logs.Error("get follower error: %s", err)
-	}
+	return nextURL
 }
 
 func (zh *ZhiHu) getFolloweeOrFollower(url string) (*PagingFollowee, error) {
-	// 避免过快
-	timer := time.NewTicker(zh.pauseDuration)
-	defer timer.Stop()
-
-	select {
-	case <-zh.stop:
-		return nil, fmt.Errorf("stop get followee or follower")
-	case <-timer.C:
-	}
-
 	req, err := utils.NewRequestWithUserAgent("GET", url, nil)
 	if err != nil {
 		return nil, err

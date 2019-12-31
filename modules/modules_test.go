@@ -34,19 +34,48 @@ func TestDataSource(t *testing.T) {
 	}
 	defer ds.db.Close()
 
-	urlTokens := []string{
-		"abc",
-		"def",
-	}
-	if err := ds.InsertURLTokens(urlTokens); err != nil {
-		t.Fatalf("%s", err)
-	}
+	// test insert
+	//urlTokens := []string{
+	//	"abc",
+	//	"def",
+	//}
+	//if err := ds.InsertURLTokens(urlTokens); err != nil {
+	//	t.Fatalf("%s", err)
+	//}
 
-	urlToken, err := ds.GetURLToken(20000)
-	if err != nil {
+	// test get urlToken offset
+	//offset := uint64(5)
+	//urlToken, err := ds.GetURLToken(offset)
+	//if err != nil {
+	//	t.Fatalf("%s", err)
+	//}
+	//fmt.Println("id:", urlToken.ID)
+	//fmt.Println("urlToken:", urlToken.URLToken)
+	//
+	//offsetRet, err := ds.GetURLTokenOffset(urlToken)
+	//if err != nil {
+	//	t.Fatalf("%s", err)
+	//}
+	//if offset != offsetRet {
+	//	t.Fatalf("get urlToken offset failed")
+	//}
+
+	//utp, err := ds.GetURLTokenProgress()
+	//if err == sql.ErrNoRows {
+	//	fmt.Println(err)
+	//} else if err != nil {
+	//	t.Fatalf("%s", err)
+	//}
+	//fmt.Printf("%+v\n", utp)
+
+	utp := &URLTokenProgress{
+		URLTokenID:      3,
+		NextFolloweeURL: "nextFolloweeURL",
+		NextFollowerURL: "nextFollowerURL",
+	}
+	if err := ds.InsertURLTokenProgress(utp); err != nil {
 		t.Fatalf("%s", err)
 	}
-	fmt.Println(urlToken)
 
 	//if err := ds.Truncate(urlTokenTable); err != nil {
 	//	t.Fatalf("%s", err)
@@ -114,5 +143,17 @@ func TestEmailSender_SendEmail(t *testing.T) {
 	}
 	if err := es.SendEmail(msg); err != nil {
 		t.Fatalf("%s", err)
+	}
+}
+
+func TestReSlice(t *testing.T) {
+	s := make([]int, 10)
+	s = s[:0]
+	for i := 0; i < 1000; i++ {
+		s = append(s, i)
+		if i%10 == 0 {
+			fmt.Printf("%v\n", s)
+			s = s[:0]
+		}
 	}
 }

@@ -4,13 +4,12 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/astaxie/beego/logs"
-
 	_ "github.com/go-sql-driver/mysql"
 )
 
 const (
-	urlTokenTable = "urlToken"
+	urlTokenTable         = "urlToken"
+	urlTokenProgressTable = "urlTokenProgress"
 )
 
 func NewDataSource(config *MySQLConfig) (*DataSource, error) {
@@ -63,7 +62,6 @@ func (ds *DataSource) InsertURLTokens(urlTokens []string) error {
 			return err
 		}
 		if count != 0 {
-			logs.Warn("duplicate urlToken: %s", urlToken)
 			continue
 		}
 
@@ -75,15 +73,49 @@ func (ds *DataSource) InsertURLTokens(urlTokens []string) error {
 	return nil
 }
 
-func (ds *DataSource) GetURLToken(offset uint64) (string, error) {
-	query := fmt.Sprintf(`SELECT urlToken FROM %s ORDER BY id LIMIT ?,1`, urlTokenTable)
+func (ds *DataSource) GetURLToken(offset uint64) (*URLToken, error) {
+	ut := &URLToken{}
+
+	query := fmt.Sprintf(`SELECT id,urlToken FROM %s ORDER BY id LIMIT ?,1`, urlTokenTable)
 	row := ds.db.QueryRow(query, offset)
 
-	var urlToken string
-	if err := row.Scan(&urlToken); err != nil {
-		return "", err
+	if err := row.Scan(ut.ToScan()...); err != nil {
+		return nil, err
 	}
-	return urlToken, nil
+	return ut, nil
+}
+
+func (ds *DataSource) GetURLTokenOffset(urlTokenID uint64) (uint64, error) {
+	var offset uint64
+
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE id<? ORDER BY id", urlTokenTable)
+	row := ds.db.QueryRow(query, urlTokenID)
+	if err := row.Scan(&offset); err != nil {
+		return 0, err
+	}
+	return offset, nil
+}
+
+func (ds *DataSource) GetURLTokenProgress() (*URLTokenProgress, error) {
+	utp := &URLTokenProgress{}
+
+	query := fmt.Sprintf(`SELECT id,urlTokenID,nextFolloweeURL,nextFollowerURL
+FROM %s ORDER BY id DESC LIMIT 1`, urlTokenProgressTable)
+
+	row := ds.db.QueryRow(query)
+	if err := row.Scan(utp.ToScan()...); err != nil {
+		return nil, err
+	}
+	return utp, nil
+}
+
+func (ds *DataSource) InsertURLTokenProgress(utp *URLTokenProgress) error {
+	query := fmt.Sprintf(`INSERT INTO %s (urlTokenID,nextFolloweeURL,nextFollowerURL) VALUES (?,?,?)`,
+		urlTokenProgressTable)
+	if _, err := ds.db.Exec(query, utp.ToInsert()...); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (ds *DataSource) Truncate(tableName string) error {
