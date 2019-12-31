@@ -20,7 +20,7 @@ func TestReadConfig(t *testing.T) {
 }
 
 func getTestConfig() (*Config, error) {
-	return ReadConfig(configPath2)
+	return ReadConfig(configPath)
 }
 
 func TestDataSource(t *testing.T) {
@@ -107,7 +107,16 @@ func TestNewZhiHu(t *testing.T) {
 	//
 	//fmt.Printf("next: %s\n", pf.Paging.Next)
 	//fmt.Printf("totals: %d\n", pf.Paging.Totals)
-	zh.sendURLTokenAmountRegularly()
+	//zh.sendURLTokenAmountRegularly()
+	pf, err := zh.getFolloweeOrFollower(`http://www.zhihu.com/api/v4/members/qi-xu-42-64/followees?include=data%5B%2A%5D.answer_count%2Carticles_count%2Cgender%2Cfollower_count%2Cis_followed%2Cis_following%2Cbadge%5B%3F%28type%3Dbest_answerer%29%5D.topics&limit=20&offset=40`)
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
+	fmt.Printf("%+v\n", *pf.Paging)
+
+	for _, data := range pf.Data {
+		fmt.Printf("%+v\n", *data)
+	}
 }
 
 func TestURLParse(t *testing.T) {

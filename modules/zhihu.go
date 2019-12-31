@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strings"
 	"time"
 	"zhihu/utils"
 
@@ -25,6 +27,7 @@ const (
 
 const (
 	pauseDurationLimit = 3 * time.Second
+	retryCountLimit    = 5
 )
 
 func NewZhiHu(config *Config) (*ZhiHu, error) {
@@ -267,20 +270,51 @@ loop:
 }
 
 func (zh *ZhiHu) getFolloweeOrFollower(url string) (*PagingFollowee, error) {
-	req, err := utils.NewRequestWithUserAgent("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
+	timer := time.NewTimer(zh.pauseDuration)
+	defer timer.Stop()
 
-	resp, err := zh.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	var retryCount int
+	for {
+		req, err := utils.NewRequestWithUserAgent("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
 
-	pf := &PagingFollowee{}
-	decoder := json.NewDecoder(resp.Body)
-	return pf, decoder.Decode(pf)
+		resp, err := zh.client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		data, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		resp.Body.Close()
+
+		pf := &PagingFollowee{}
+		if err := json.Unmarshal(data, pf); err != nil {
+			logs.Error("error when get followee or follower, data: %s, err: %s", data, err)
+
+			if strings.HasPrefix(err.Error(), "invalid character") {
+				// 第一次也统计到重试次数中
+				retryCount++
+				if retryCount >= retryCountLimit {
+					logs.Error("retry count over")
+					return nil, err
+				}
+
+				timer.Reset(zh.pauseDuration)
+				select {
+				case <-timer.C:
+				}
+			} else {
+				// 其他错误
+				return nil, err
+			}
+		} else {
+			return pf, nil
+		}
+	}
 }
 
 func (zh *ZhiHu) sendURLTokenAmountRegularly() {
