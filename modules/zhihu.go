@@ -24,7 +24,7 @@ const (
 )
 
 const (
-	pauseDurationLimit = 2 * time.Second
+	pauseDurationLimit = 4 * time.Second
 )
 
 func NewZhiHu(config *Config) (*ZhiHu, error) {
@@ -211,7 +211,6 @@ func (zh *ZhiHu) continueGetFollowee(startURL string) string {
 	urlTokens := make([]string, 20)
 	urlTokens = urlTokens[:0]
 
-	// 使用 ticker 而不使用 timer 使得每次获取数据的时间近似
 	ticker := time.NewTicker(zh.pauseDuration)
 	defer ticker.Stop()
 
