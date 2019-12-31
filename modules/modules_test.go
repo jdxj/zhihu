@@ -69,18 +69,24 @@ func TestDataSource(t *testing.T) {
 	//}
 	//fmt.Printf("%+v\n", utp)
 
-	utp := &URLTokenProgress{
-		URLTokenID:      3,
-		NextFolloweeURL: "nextFolloweeURL",
-		NextFollowerURL: "nextFollowerURL",
-	}
-	if err := ds.InsertURLTokenProgress(utp); err != nil {
-		t.Fatalf("%s", err)
-	}
+	//utp := &URLTokenProgress{
+	//	URLTokenID:      3,
+	//	NextFolloweeURL: "nextFolloweeURL",
+	//	NextFollowerURL: "nextFollowerURL",
+	//}
+	//if err := ds.InsertURLTokenProgress(utp); err != nil {
+	//	t.Fatalf("%s", err)
+	//}
 
 	//if err := ds.Truncate(urlTokenTable); err != nil {
 	//	t.Fatalf("%s", err)
 	//}
+
+	count, err := ds.CountURLToken()
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
+	fmt.Println(count)
 }
 
 func TestNewZhiHu(t *testing.T) {
@@ -94,13 +100,14 @@ func TestNewZhiHu(t *testing.T) {
 		t.Fatalf("%s", err)
 	}
 
-	pf, err := zh.getFolloweeOrFollower(fmt.Sprintf(FolloweeAPI, config.ZhiHu.OwnURLToken))
-	if err != nil {
-		t.Fatalf("%s", err)
-	}
-
-	fmt.Printf("next: %s\n", pf.Paging.Next)
-	fmt.Printf("totals: %d\n", pf.Paging.Totals)
+	//pf, err := zh.getFolloweeOrFollower(fmt.Sprintf(FolloweeAPI, config.ZhiHu.OwnURLToken))
+	//if err != nil {
+	//	t.Fatalf("%s", err)
+	//}
+	//
+	//fmt.Printf("next: %s\n", pf.Paging.Next)
+	//fmt.Printf("totals: %d\n", pf.Paging.Totals)
+	zh.sendURLTokenAmountRegularly()
 }
 
 func TestURLParse(t *testing.T) {
@@ -137,8 +144,6 @@ func TestEmailSender_SendEmail(t *testing.T) {
 	}
 
 	msg := &EmailMsg{
-		From:    "985759262@qq.com",
-		To:      "985759262@qq.com",
 		Subject: "test zhihu send email",
 		Content: "ok",
 	}

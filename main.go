@@ -30,7 +30,7 @@ func main() {
 	defer zhiHu.Stop()
 
 	logs.Info("zhihu start")
-	go zhiHu.CollectURLToken()
+	zhiHu.Start()
 
 	sigs := make(chan os.Signal, 2)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

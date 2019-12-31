@@ -97,6 +97,18 @@ type ZhiHu struct {
 	stopFinish chan struct{}
 }
 
+func (zh *ZhiHu) Start() {
+	// 其他服务
+	go zh.sendURLTokenAmountRegularly()
+
+	switch zh.config.Mode {
+	case collectURLToken:
+		go zh.CollectURLToken()
+	default:
+		logs.Warn("unexpected start mode")
+	}
+}
+
 func (zh *ZhiHu) CollectURLToken() {
 	defer func() {
 		close(zh.stopFinish)
@@ -260,6 +272,38 @@ func (zh *ZhiHu) getFolloweeOrFollower(url string) (*PagingFollowee, error) {
 	pf := &PagingFollowee{}
 	decoder := json.NewDecoder(resp.Body)
 	return pf, decoder.Decode(pf)
+}
+
+func (zh *ZhiHu) sendURLTokenAmountRegularly() {
+	msg := &EmailMsg{
+		Subject: "URLToken Amount",
+	}
+
+	// 先发送一次数据
+	count, err := zh.dataSource.CountURLToken()
+	msg.Content = fmt.Sprintf("count: %d, err: %s", count, err)
+
+	if err := zh.emailSender.SendEmail(msg); err != nil {
+		logs.Error("%s", err)
+	}
+
+	ticker := time.NewTicker(24 * time.Hour)
+	for {
+		select {
+		case <-zh.stop:
+			// 立即释放
+			ticker.Stop()
+			return
+		case <-ticker.C:
+		}
+
+		count, err := zh.dataSource.CountURLToken()
+		msg.Content = fmt.Sprintf("count: %d, err: %s", count, err)
+
+		if err := zh.emailSender.SendEmail(msg); err != nil {
+			logs.Error("%s", err)
+		}
+	}
 }
 
 type PagingFollowee struct {

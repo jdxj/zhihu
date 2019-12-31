@@ -13,8 +13,6 @@ const (
 )
 
 type EmailMsg struct {
-	From    string
-	To      string
 	Subject string
 	Content string
 }
@@ -44,8 +42,8 @@ func (es *EmailSender) SendEmail(msg *EmailMsg) error {
 	sender := es.sender
 	config := es.emailConfig
 
-	sender.From = msg.From
-	sender.To = []string{msg.To}
+	sender.From = config.User
+	sender.To = []string{config.User}
 	sender.Subject = msg.Subject
 	sender.Text = []byte(msg.Content)
 

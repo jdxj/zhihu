@@ -126,3 +126,10 @@ func (ds *DataSource) Truncate(tableName string) error {
 
 	return nil
 }
+
+func (ds *DataSource) CountURLToken() (count uint64, err error) {
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM %s`, urlTokenTable)
+	row := ds.db.QueryRow(query)
+
+	return count, row.Scan(&count)
+}
