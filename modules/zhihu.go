@@ -24,7 +24,7 @@ const (
 )
 
 const (
-	pauseDurationLimit = 4 * time.Second
+	pauseDurationLimit = 3 * time.Second
 )
 
 func NewZhiHu(config *Config) (*ZhiHu, error) {
@@ -248,6 +248,15 @@ loop:
 	}
 	if err != nil {
 		logs.Error("get followee error: %s, startURL: %s, nextURL: %s", err, startURL, nextURL)
+
+		// todo: 这是个未解决的错误, 需要在运行该程序时调试; 需要邮件通知
+		msg := &EmailMsg{
+			Subject: "Get Followee Error",
+			Content: fmt.Sprintf("startURL: %s, nextURL: %s", startURL, nextURL),
+		}
+		if err := zh.emailSender.SendEmail(msg); err != nil {
+			logs.Error("error when send 'Get Followee Error' email: %s", err)
+		}
 	}
 
 	// 如果某个人的 "关注了" 或 "关注者" 为0, 那么需要给其初始值
