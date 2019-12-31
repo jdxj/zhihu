@@ -247,7 +247,7 @@ loop:
 		}
 	}
 	if err != nil {
-		logs.Error("get followee error: %s", err)
+		logs.Error("get followee error: %s, startURL: %s, nextURL: %s", err, startURL, nextURL)
 	}
 
 	// 如果某个人的 "关注了" 或 "关注者" 为0, 那么需要给其初始值
