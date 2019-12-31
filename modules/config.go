@@ -31,9 +31,10 @@ type MySQLConfig struct {
 }
 
 type ZhiHuConfig struct {
-	Mode        int    `json:"mode"`
-	Cookie      string `json:"cookie"`
-	OwnURLToken string `json:"ownURLToken"`
+	Mode          int    `json:"mode"`
+	Cookie        string `json:"cookie"`
+	OwnURLToken   string `json:"ownURLToken"`
+	PauseDuration string `json:"pauseDuration"`
 }
 
 type EmailConfig struct {

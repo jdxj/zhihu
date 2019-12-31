@@ -23,6 +23,10 @@ const (
 	UserSumInfoAPI = `https://www.zhihu.com/api/v4/members/%s?include=allow_message,is_followed,is_following,is_org,is_blocking,employments,answer_count,follower_count,articles_count,gender,badge[?(type=best_answerer)].topics`
 )
 
+const (
+	pauseDurationLimit = 2 * time.Second
+)
+
 func NewZhiHu(zhConfig *ZhiHuConfig, mysqlConfig *MySQLConfig) (*ZhiHu, error) {
 	if zhConfig == nil {
 		return nil, fmt.Errorf("invalid zhihu config")
@@ -55,18 +59,29 @@ func NewZhiHu(zhConfig *ZhiHuConfig, mysqlConfig *MySQLConfig) (*ZhiHu, error) {
 		return nil, err
 	}
 
+	dur, err := time.ParseDuration(zhConfig.PauseDuration)
+	if err != nil {
+		return nil, err
+	}
+	if dur < pauseDurationLimit {
+		dur = pauseDurationLimit
+	}
+
 	zhiHu := &ZhiHu{
-		config:     zhConfig,
-		client:     client,
-		dataSource: ds,
-		stop:       make(chan struct{}),
-		stopFinish: make(chan struct{}),
+		config:        zhConfig,
+		pauseDuration: dur,
+		client:        client,
+		dataSource:    ds,
+		stop:          make(chan struct{}),
+		stopFinish:    make(chan struct{}),
 	}
 	return zhiHu, nil
 }
 
 type ZhiHu struct {
-	config     *ZhiHuConfig
+	config        *ZhiHuConfig
+	pauseDuration time.Duration
+
 	client     *http.Client
 	dataSource *DataSource
 
@@ -165,7 +180,7 @@ func (zh *ZhiHu) continueGetFollowee(followeeFirstURLToken, followerFirstURLToke
 
 func (zh *ZhiHu) getFolloweeOrFollower(url string) (*PagingFollowee, error) {
 	// 避免过快
-	timer := time.NewTicker(5 * time.Second)
+	timer := time.NewTicker(zh.pauseDuration)
 	defer timer.Stop()
 
 	select {

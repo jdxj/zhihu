@@ -8,7 +8,8 @@
   "zhiHu": {
     "mode": 1,
     "cookie": "",
-    "ownURLToken": "wang-you-qiang-36"
+    "ownURLToken": "wang-you-qiang-36",
+    "pauseDuration": "3s"
   },
   "email": {
     "user": "985759262@qq.com",
