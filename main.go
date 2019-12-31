@@ -22,7 +22,7 @@ func main() {
 		return
 	}
 
-	zhiHu, err := modules.NewZhiHu(config.ZhiHu, config.MySQL)
+	zhiHu, err := modules.NewZhiHu(config)
 	if err != nil {
 		logs.Error("%s", err)
 		return

@@ -1,6 +1,7 @@
 package modules
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"testing"
@@ -88,7 +89,7 @@ func TestNewZhiHu(t *testing.T) {
 		t.Fatalf("%s", err)
 	}
 
-	zh, err := NewZhiHu(config.ZhiHu, config.MySQL)
+	zh, err := NewZhiHu(config)
 	if err != nil {
 		t.Fatalf("%s", err)
 	}
@@ -155,5 +156,14 @@ func TestReSlice(t *testing.T) {
 			fmt.Printf("%v\n", s)
 			s = s[:0]
 		}
+	}
+}
+
+func TestJsonParse(t *testing.T) {
+	str := `{"paging": {"is_end": true, "totals": 0, "previous": "http://www.zhihu.com/api/v4/members/eluosixiongmei/followees?include=data%5B%2A%5D.answer_count%2Carticles_count%2Cgender%2Cfollower_count%2Cis_followed%2Cis_following%2Cbadge%5B%3F%28type%3Dbest_answerer%29%5D.topics&limit=20&offset=0", "is_start": true, "next": "http://www.zhihu.com/api/v4/members/eluosixiongmei/followees?include=data%5B%2A%5D.answer_count%2Carticles_count%2Cgender%2Cfollower_count%2Cis_followed%2Cis_following%2Cbadge%5B%3F%28type%3Dbest_answerer%29%5D.topics&limit=20&offset=20"}, "data": []}`
+
+	pf := &PagingFollowee{}
+	if err := json.Unmarshal([]byte(str), pf); err != nil {
+		t.Fatalf("%s", err)
 	}
 }

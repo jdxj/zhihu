@@ -27,15 +27,16 @@ const (
 	pauseDurationLimit = 2 * time.Second
 )
 
-func NewZhiHu(zhConfig *ZhiHuConfig, mysqlConfig *MySQLConfig) (*ZhiHu, error) {
-	if zhConfig == nil {
-		return nil, fmt.Errorf("invalid zhihu config")
-	}
-	if mysqlConfig == nil {
-		return nil, fmt.Errorf("invalid mysql config")
+func NewZhiHu(config *Config) (*ZhiHu, error) {
+	if config == nil {
+		return nil, fmt.Errorf("invalid config")
 	}
 
-	cookies, err := utils.StringToCookies(zhConfig.Cookie, ".zhihu.com")
+	zhiHuConfig := config.ZhiHu
+	mysqlConfig := config.MySQL
+	emailConfig := config.Email
+
+	cookies, err := utils.StringToCookies(zhiHuConfig.Cookie, ".zhihu.com")
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +60,7 @@ func NewZhiHu(zhConfig *ZhiHuConfig, mysqlConfig *MySQLConfig) (*ZhiHu, error) {
 		return nil, err
 	}
 
-	dur, err := time.ParseDuration(zhConfig.PauseDuration)
+	dur, err := time.ParseDuration(zhiHuConfig.PauseDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -67,10 +68,16 @@ func NewZhiHu(zhConfig *ZhiHuConfig, mysqlConfig *MySQLConfig) (*ZhiHu, error) {
 		dur = pauseDurationLimit
 	}
 
+	emailSender, err := NewEmailSender(emailConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	zhiHu := &ZhiHu{
-		config:        zhConfig,
+		config:        zhiHuConfig,
 		pauseDuration: dur,
 		client:        client,
+		emailSender:   emailSender,
 		dataSource:    ds,
 		stop:          make(chan struct{}),
 		stopFinish:    make(chan struct{}),
@@ -82,8 +89,9 @@ type ZhiHu struct {
 	config        *ZhiHuConfig
 	pauseDuration time.Duration
 
-	client     *http.Client
-	dataSource *DataSource
+	client      *http.Client
+	dataSource  *DataSource
+	emailSender *EmailSender
 
 	stop       chan struct{}
 	stopFinish chan struct{}
