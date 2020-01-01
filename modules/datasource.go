@@ -10,6 +10,8 @@ import (
 const (
 	urlTokenTable         = "urlToken"
 	urlTokenProgressTable = "urlTokenProgress"
+	topicIDTable          = "topicID"
+	topicIDProgressTable  = "topicIDProgress"
 )
 
 func NewDataSource(config *MySQLConfig) (*DataSource, error) {
@@ -75,38 +77,24 @@ func (ds *DataSource) InsertURLTokens(urlTokens []string) error {
 
 func (ds *DataSource) GetURLToken(offset uint64) (*URLToken, error) {
 	ut := &URLToken{}
-
 	query := fmt.Sprintf(`SELECT id,urlToken FROM %s ORDER BY id LIMIT ?,1`, urlTokenTable)
 	row := ds.db.QueryRow(query, offset)
-
-	if err := row.Scan(ut.ToScan()...); err != nil {
-		return nil, err
-	}
-	return ut, nil
+	return ut, row.Scan(ut.ToScan()...)
 }
 
 func (ds *DataSource) GetURLTokenOffset(urlTokenID uint64) (uint64, error) {
 	var offset uint64
-
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE id<? ORDER BY id", urlTokenTable)
 	row := ds.db.QueryRow(query, urlTokenID)
-	if err := row.Scan(&offset); err != nil {
-		return 0, err
-	}
-	return offset, nil
+	return offset, row.Scan(&offset)
 }
 
 func (ds *DataSource) GetURLTokenProgress() (*URLTokenProgress, error) {
 	utp := &URLTokenProgress{}
-
 	query := fmt.Sprintf(`SELECT id,urlTokenID,nextFolloweeURL,nextFollowerURL
 FROM %s ORDER BY id DESC LIMIT 1`, urlTokenProgressTable)
-
 	row := ds.db.QueryRow(query)
-	if err := row.Scan(utp.ToScan()...); err != nil {
-		return nil, err
-	}
-	return utp, nil
+	return utp, row.Scan(utp.ToScan()...)
 }
 
 func (ds *DataSource) InsertURLTokenProgress(utp *URLTokenProgress) error {
@@ -132,4 +120,69 @@ func (ds *DataSource) CountURLToken() (count uint64, err error) {
 	row := ds.db.QueryRow(query)
 
 	return count, row.Scan(&count)
+}
+
+func (ds *DataSource) InsertTopicsID(topics []string) error {
+	db := ds.db
+
+	querySelect := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE topicID=?`, topicIDTable)
+	stmtSelect, err := db.Prepare(querySelect)
+	if err != nil {
+		return err
+	}
+	defer stmtSelect.Close()
+
+	queryInsert := fmt.Sprintf(`INSERT INTO %s (topicID) VALUES (?)`, topicIDTable)
+	stmtInsert, err := db.Prepare(queryInsert)
+	if err != nil {
+		return err
+	}
+	defer stmtInsert.Close()
+
+	for _, topic := range topics {
+		row := stmtSelect.QueryRow(topic)
+		var count int
+		if err := row.Scan(&count); err != nil {
+			return err
+		}
+		if count != 0 {
+			continue
+		}
+
+		if _, err := stmtInsert.Exec(topic); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (ds *DataSource) GetTopicID(offset uint64) (*TopicID, error) {
+	ti := &TopicID{}
+	query := fmt.Sprintf(`SELECT id,topicID FROM %s ORDER BY id LIMIT ?,1`, topicIDTable)
+	row := ds.db.QueryRow(query, offset)
+	return ti, row.Scan(ti.ToScan()...)
+}
+
+func (ds *DataSource) GetTopicIDOffset(topicID uint64) (uint64, error) {
+	var offset uint64
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE id<? ORDER BY id`, topicIDTable)
+	row := ds.db.QueryRow(query, topicID)
+	return offset, row.Scan(&offset)
+}
+
+func (ds *DataSource) GetTopicIDProgress() (*TopicIDProgress, error) {
+	tip := &TopicIDProgress{}
+	query := fmt.Sprintf(`SELECT id,topicID,nextTopicIDURL
+FROM %s ORDER BY id DESC LIMIT 1`, topicIDProgressTable)
+	row := ds.db.QueryRow(query)
+	return tip, row.Scan(tip.ToScan()...)
+}
+
+func (ds *DataSource) InsertTopicIDProgress(tip *TopicIDProgress) error {
+	query := fmt.Sprintf(`INSERT INTO %s (topicID,nextTopicIDURL) VALUES (?,?)`, topicIDProgressTable)
+	if _, err := ds.db.Exec(query, tip.ToInsert()...); err != nil {
+		return err
+	}
+	return nil
 }

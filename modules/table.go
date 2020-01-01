@@ -39,3 +39,39 @@ func (utp *URLTokenProgress) ToInsert() []interface{} {
 
 	return fields
 }
+
+type TopicID struct {
+	ID      uint64
+	TopicID string
+}
+
+func (ti *TopicID) ToScan() []interface{} {
+	var fields []interface{}
+
+	fields = append(fields, &ti.ID)
+	fields = append(fields, &ti.TopicID)
+	return fields
+}
+
+type TopicIDProgress struct {
+	ID             uint64
+	TopicID        uint64
+	NextTopicIDURL string
+}
+
+func (tip *TopicIDProgress) ToScan() []interface{} {
+	var fields []interface{}
+
+	fields = append(fields, &tip.ID)
+	fields = append(fields, &tip.TopicID)
+	fields = append(fields, &tip.NextTopicIDURL)
+	return fields
+}
+
+func (tip *TopicIDProgress) ToInsert() []interface{} {
+	var fields []interface{}
+
+	fields = append(fields, tip.TopicID)
+	fields = append(fields, tip.NextTopicIDURL)
+	return fields
+}

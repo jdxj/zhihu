@@ -34,6 +34,7 @@ type ZhiHuConfig struct {
 	Mode          int    `json:"mode"`
 	Cookie        string `json:"cookie"`
 	OwnURLToken   string `json:"ownURLToken"`
+	RootTopicID   string `json:"rootTopicID"`
 	PauseDuration string `json:"pauseDuration"`
 }
 

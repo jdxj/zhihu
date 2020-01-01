@@ -6,10 +6,11 @@
     "database": "zhihu"
   },
   "zhiHu": {
-    "mode": 1,
+    "mode": 2,
     "cookie": "",
     "ownURLToken": "wang-you-qiang-36",
-    "pauseDuration": "3s"
+    "rootTopicID": "19776749",
+    "pauseDuration": "5s"
   },
   "email": {
     "user": "985759262@qq.com",

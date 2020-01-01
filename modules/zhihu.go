@@ -17,12 +17,14 @@ import (
 
 const (
 	collectURLToken = iota + 1
+	collectTopicID
 )
 
 const (
 	FolloweeAPI    = `https://www.zhihu.com/api/v4/members/%s/followees?include=data[*].answer_count,articles_count,gender,follower_count,is_followed,is_following,badge[?(type=best_answerer)].topics&offset=0&limit=20`
 	FollowerAPI    = `https://www.zhihu.com/api/v4/members/%s/followers?include=data[*].answer_count,articles_count,gender,follower_count,is_followed,is_following,badge[?(type=best_answerer)].topics&offset=0&limit=20`
 	UserSumInfoAPI = `https://www.zhihu.com/api/v4/members/%s?include=allow_message,is_followed,is_following,is_org,is_blocking,employments,answer_count,follower_count,articles_count,gender,badge[?(type=best_answerer)].topics`
+	TopicIDAPI     = `https://www.zhihu.com/api/v3/topics/%s/children`
 )
 
 const (
@@ -101,12 +103,12 @@ type ZhiHu struct {
 }
 
 func (zh *ZhiHu) Start() {
-	// 其他服务
-	go zh.sendURLTokenAmountRegularly()
-
 	switch zh.config.Mode {
 	case collectURLToken:
 		go zh.CollectURLToken()
+		go zh.sendURLTokenAmountRegularly()
+	case collectTopicID:
+		go zh.CollectTopicID()
 	default:
 		logs.Warn("unexpected start mode")
 	}
@@ -183,14 +185,14 @@ loop:
 	urlToken, err := ds.GetURLToken(offset)
 	if err == sql.ErrNoRows {
 		urlToken = &URLToken{
-			ID: 0, // 从头开始?
+			ID: 1, // 从头开始?
 		}
 		startFolloweeURL = fmt.Sprintf(FolloweeAPI, zh.config.OwnURLToken)
 		startFollowerURL = fmt.Sprintf(FollowerAPI, zh.config.OwnURLToken)
 		logs.Warn("url token get gone when will save urlTokenProgress")
 	} else if err != nil {
 		urlToken = &URLToken{
-			ID: 0, // 从头开始?
+			ID: 1, // 从头开始?
 		}
 		startFolloweeURL = fmt.Sprintf(FolloweeAPI, zh.config.OwnURLToken)
 		startFollowerURL = fmt.Sprintf(FollowerAPI, zh.config.OwnURLToken)
@@ -420,4 +422,186 @@ type Company struct {
 	AvatarURL string `json:"avatar_url"`
 }
 type SelfRecommend struct {
+}
+
+func (zh *ZhiHu) CollectTopicID() {
+	defer func() {
+		close(zh.stopFinish)
+	}()
+
+	ds := zh.dataSource
+	// todo: 是否在这里关闭数据库?
+	defer ds.db.Close()
+
+	if err := ds.InsertTopicsID([]string{zh.config.RootTopicID}); err != nil {
+		logs.Error("%s", err)
+		return
+	}
+
+	var offset uint64
+	var startTopicIDURL string
+
+	tip, err := ds.GetTopicIDProgress()
+	if err == sql.ErrNoRows {
+		offset = 0
+		startTopicIDURL = fmt.Sprintf(TopicIDAPI, zh.config.RootTopicID)
+	} else if err != nil {
+		logs.Error("%s", err)
+		return
+	} else {
+		if offset, err = ds.GetTopicIDOffset(tip.TopicID); err != nil {
+			logs.Error("error when get topicIDOffset: %s", err)
+			return
+		}
+
+		startTopicIDURL = tip.NextTopicIDURL
+		logs.Debug("load topicIDProgress success")
+	}
+
+loop:
+	for {
+		startTopicIDURL = zh.continueGetTopicID(startTopicIDURL)
+
+		select {
+		case <-zh.stop:
+			logs.Info("stop collect topic id, offset: %d", offset)
+			break loop
+		default:
+		}
+
+		offset++
+		topicID, err := ds.GetTopicID(offset)
+		if err == sql.ErrNoRows {
+			logs.Info("topic id get gone")
+			break loop
+		} else if err != nil {
+			logs.Error("%s", err)
+			break loop
+		}
+
+		startTopicIDURL = fmt.Sprintf(TopicIDAPI, topicID.TopicID)
+	}
+
+	topicID, err := ds.GetTopicID(offset)
+	if err == sql.ErrNoRows {
+		topicID = &TopicID{
+			ID: 1,
+		}
+		startTopicIDURL = fmt.Sprintf(TopicIDAPI, zh.config.RootTopicID)
+		logs.Warn("topic id get gone when will save topicIDProgress")
+	} else if err != nil {
+		topicID = &TopicID{
+			ID: 1,
+		}
+		startTopicIDURL = fmt.Sprintf(TopicIDAPI, zh.config.RootTopicID)
+		logs.Warn("topic id get gone when will save topicIDProgress: %s", err)
+	}
+
+	topicIDProgress := &TopicIDProgress{
+		TopicID:        topicID.ID,
+		NextTopicIDURL: startTopicIDURL,
+	}
+	if err := ds.InsertTopicIDProgress(topicIDProgress); err != nil {
+		logs.Error("error when insert topicIDProgress: %s", err)
+	}
+}
+
+func (zh *ZhiHu) continueGetTopicID(startTopicIDURL string) string {
+	var pt *PagingTopic
+	var err error
+	var nextURL string
+	topicsID := make([]string, 20)
+	topicsID = topicsID[:0]
+
+	ticker := time.NewTicker(zh.pauseDuration)
+	defer ticker.Stop()
+
+loop:
+	for pt, err = zh.getTopicID(startTopicIDURL); err == nil && len(pt.Data) != 0; pt, err = zh.getTopicID(nextURL) {
+		for _, topic := range pt.Data {
+			topicsID = append(topicsID, topic.ID)
+		}
+
+		if err := zh.dataSource.InsertTopicsID(topicsID); err != nil {
+			logs.Error("%s", err)
+		}
+		topicsID = topicsID[0:]
+		nextURL = pt.Paging.Next
+
+		select {
+		case <-zh.stop:
+			logs.Warn("stop continue get topicID")
+			break loop
+		case <-ticker.C:
+		}
+	}
+	if err != nil {
+		logs.Error("get topicID error: %s", err)
+	}
+
+	if nextURL == "" {
+		nextURL = startTopicIDURL
+	}
+	return nextURL
+}
+
+func (zh *ZhiHu) getTopicID(topicIDURL string) (*PagingTopic, error) {
+	timer := time.NewTimer(zh.pauseDuration)
+	defer timer.Stop()
+
+	var retryCount int
+	for {
+		req, err := utils.NewRequestWithUserAgent("GET", topicIDURL, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		resp, err := zh.client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		data, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		resp.Body.Close()
+
+		pt := &PagingTopic{}
+		if err := json.Unmarshal(data, pt); err != nil {
+			logs.Error("error when get topic id: data: %s, err: %s", data, err)
+
+			if strings.HasPrefix(err.Error(), "invalid character") {
+				retryCount++
+				if retryCount >= retryCountLimit {
+					logs.Error("retry count over")
+					return nil, err
+				}
+
+				timer.Reset(zh.pauseDuration)
+				select {
+				case <-timer.C:
+				}
+			}
+		} else {
+			return pt, nil
+		}
+	}
+}
+
+type PagingTopic struct {
+	Paging *Paging  `json:"paging"`
+	Data   []*Topic `json:"data"`
+}
+
+type Topic struct {
+	IsBlack      bool   `json:"is_black"`
+	Name         string `json:"name"`
+	URL          string `json:"url"`
+	Excerpt      string `json:"excerpt"`
+	IsVote       bool   `json:"is_vote"`
+	Introduction string `json:"introduction"`
+	AvatarURL    string `json:"avatar_url"`
+	Type         string `json:"type"`
+	ID           string `json:"id"`
 }
