@@ -43,6 +43,7 @@ func (utp *URLTokenProgress) ToInsert() []interface{} {
 type TopicID struct {
 	ID      uint64
 	TopicID string
+	Name    string
 }
 
 func (ti *TopicID) ToScan() []interface{} {
@@ -50,6 +51,15 @@ func (ti *TopicID) ToScan() []interface{} {
 
 	fields = append(fields, &ti.ID)
 	fields = append(fields, &ti.TopicID)
+	fields = append(fields, &ti.Name)
+	return fields
+}
+
+func (ti *TopicID) ToInsert() []interface{} {
+	var fields []interface{}
+
+	fields = append(fields, ti.TopicID)
+	fields = append(fields, ti.Name)
 	return fields
 }
 

@@ -122,7 +122,7 @@ func (ds *DataSource) CountURLToken() (count uint64, err error) {
 	return count, row.Scan(&count)
 }
 
-func (ds *DataSource) InsertTopicsID(topics []string) error {
+func (ds *DataSource) InsertTopicsID(topicsID []*TopicID) error {
 	db := ds.db
 
 	querySelect := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE topicID=?`, topicIDTable)
@@ -132,15 +132,15 @@ func (ds *DataSource) InsertTopicsID(topics []string) error {
 	}
 	defer stmtSelect.Close()
 
-	queryInsert := fmt.Sprintf(`INSERT INTO %s (topicID) VALUES (?)`, topicIDTable)
+	queryInsert := fmt.Sprintf(`INSERT INTO %s (topicID,name) VALUES (?,?)`, topicIDTable)
 	stmtInsert, err := db.Prepare(queryInsert)
 	if err != nil {
 		return err
 	}
 	defer stmtInsert.Close()
 
-	for _, topic := range topics {
-		row := stmtSelect.QueryRow(topic)
+	for _, topicID := range topicsID {
+		row := stmtSelect.QueryRow(topicID.TopicID)
 		var count int
 		if err := row.Scan(&count); err != nil {
 			return err
@@ -149,7 +149,7 @@ func (ds *DataSource) InsertTopicsID(topics []string) error {
 			continue
 		}
 
-		if _, err := stmtInsert.Exec(topic); err != nil {
+		if _, err := stmtInsert.Exec(topicID.ToInsert()...); err != nil {
 			return err
 		}
 	}
@@ -159,7 +159,7 @@ func (ds *DataSource) InsertTopicsID(topics []string) error {
 
 func (ds *DataSource) GetTopicID(offset uint64) (*TopicID, error) {
 	ti := &TopicID{}
-	query := fmt.Sprintf(`SELECT id,topicID FROM %s ORDER BY id LIMIT ?,1`, topicIDTable)
+	query := fmt.Sprintf(`SELECT id,topicID,name FROM %s ORDER BY id LIMIT ?,1`, topicIDTable)
 	row := ds.db.QueryRow(query, offset)
 	return ti, row.Scan(ti.ToScan()...)
 }

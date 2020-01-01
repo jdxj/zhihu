@@ -433,7 +433,11 @@ func (zh *ZhiHu) CollectTopicID() {
 	// todo: 是否在这里关闭数据库?
 	defer ds.db.Close()
 
-	if err := ds.InsertTopicsID([]string{zh.config.RootTopicID}); err != nil {
+	rootTopicID := &TopicID{
+		TopicID: zh.config.RootTopicID,
+		Name:    "根话题", // 比较懒
+	}
+	if err := ds.InsertTopicsID([]*TopicID{rootTopicID}); err != nil {
 		logs.Error("%s", err)
 		return
 	}
@@ -510,7 +514,7 @@ func (zh *ZhiHu) continueGetTopicID(startTopicIDURL string) string {
 	var pt *PagingTopic
 	var err error
 	var nextURL string
-	topicsID := make([]string, 20)
+	topicsID := make([]*TopicID, 20)
 	topicsID = topicsID[:0]
 
 	ticker := time.NewTicker(zh.pauseDuration)
@@ -519,7 +523,11 @@ func (zh *ZhiHu) continueGetTopicID(startTopicIDURL string) string {
 loop:
 	for pt, err = zh.getTopicID(startTopicIDURL); err == nil && len(pt.Data) != 0; pt, err = zh.getTopicID(nextURL) {
 		for _, topic := range pt.Data {
-			topicsID = append(topicsID, topic.ID)
+			topicID := &TopicID{
+				TopicID: topic.ID,
+				Name:    topic.Name,
+			}
+			topicsID = append(topicsID, topicID)
 		}
 
 		if err := zh.dataSource.InsertTopicsID(topicsID); err != nil {
