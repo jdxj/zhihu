@@ -12,6 +12,8 @@ const (
 	urlTokenProgressTable = "urlTokenProgress"
 	topicIDTable          = "topicID"
 	topicIDProgressTable  = "topicIDProgress"
+	topicTable            = "topic"
+	topicProgress         = "topicProgress"
 )
 
 func NewDataSource(config *MySQLConfig) (*DataSource, error) {
@@ -182,6 +184,42 @@ FROM %s ORDER BY id DESC LIMIT 1`, topicIDProgressTable)
 func (ds *DataSource) InsertTopicIDProgress(tip *TopicIDProgress) error {
 	query := fmt.Sprintf(`INSERT INTO %s (topicID,nextTopicIDURL) VALUES (?,?)`, topicIDProgressTable)
 	if _, err := ds.db.Exec(query, tip.ToInsert()...); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ds *DataSource) InsertTopic(tt *TopicTable) error {
+	db := ds.db
+
+	querySelect := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE topicID=?`, topicTable)
+	row := db.QueryRow(querySelect, tt.TopicID)
+
+	var count int
+	if err := row.Scan(&count); err != nil {
+		return err
+	}
+	if count != 0 {
+		return nil
+	}
+
+	queryInsert := fmt.Sprintf(`INSERT INTO %s (topicID,followerCount,questionCount) VALUES (?,?,?)`, topicTable)
+	if _, err := db.Exec(queryInsert, tt.TopicID, tt.FollowerCount, tt.QuestionCount); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ds *DataSource) GetTopicProgress() (*TopicProgress, error) {
+	query := fmt.Sprintf(`SELECT id,topicID FROM %s ORDER BY id DESC LIMIT 1`, topicProgress)
+	row := ds.db.QueryRow(query)
+	tp := &TopicProgress{}
+	return tp, row.Scan(tp.ToScan()...)
+}
+
+func (ds *DataSource) InsertTopicProgress(tp *TopicProgress) error {
+	query := fmt.Sprintf(`INSERT INTO %s (topicID) VALUES (?)`, topicProgress)
+	if _, err := ds.db.Exec(query, tp.ToInsert()...); err != nil {
 		return err
 	}
 	return nil

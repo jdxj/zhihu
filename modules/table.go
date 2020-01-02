@@ -85,3 +85,40 @@ func (tip *TopicIDProgress) ToInsert() []interface{} {
 	fields = append(fields, tip.NextTopicIDURL)
 	return fields
 }
+
+// TopicTable 有重名的结构, 所以使用了 Table 后缀
+type TopicTable struct {
+	ID            uint64
+	TopicID       uint64
+	FollowerCount uint64
+	QuestionCount uint64
+}
+
+func (tt *TopicTable) ToInsert() []interface{} {
+	var fields []interface{}
+
+	fields = append(fields, tt.TopicID)
+	fields = append(fields, tt.FollowerCount)
+	fields = append(fields, tt.QuestionCount)
+	return fields
+}
+
+type TopicProgress struct {
+	ID      uint64
+	TopicID uint64
+}
+
+func (tp *TopicProgress) ToScan() []interface{} {
+	var fields []interface{}
+
+	fields = append(fields, &tp.ID)
+	fields = append(fields, &tp.TopicID)
+	return fields
+}
+
+func (tp *TopicProgress) ToInsert() []interface{} {
+	var fields []interface{}
+
+	fields = append(fields, tp.TopicID)
+	return fields
+}

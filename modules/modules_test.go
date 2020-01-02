@@ -20,7 +20,7 @@ func TestReadConfig(t *testing.T) {
 }
 
 func getTestConfig() (*Config, error) {
-	return ReadConfig(configPath)
+	return ReadConfig(configPath2)
 }
 
 func TestDataSource(t *testing.T) {
@@ -35,14 +35,14 @@ func TestDataSource(t *testing.T) {
 	}
 	defer ds.db.Close()
 
-	tip := &TopicIDProgress{
-		TopicID:        2,
-		NextTopicIDURL: "apple",
+	tp := &TopicProgress{
+		TopicID: 2,
 	}
-	err = ds.InsertTopicIDProgress(tip)
+	err = ds.InsertTopicProgress(tp)
 	if err != nil {
 		t.Fatalf("%s", err)
 	}
+	fmt.Printf("%+v", *tp)
 }
 
 func TestNewZhiHu(t *testing.T) {
@@ -56,14 +56,8 @@ func TestNewZhiHu(t *testing.T) {
 		t.Fatalf("%s", err)
 	}
 
-	pt, err := zh.getTopicID("https://www.zhihu.com/api/v3/topics/19776749/children")
-	if err != nil {
-		t.Fatalf("%s", err)
-	}
-
-	fmt.Printf("%+v\n", *pt.Paging)
-	for _, topic := range pt.Data {
-		fmt.Printf("%+v\n", *topic)
+	if err := zh.crawlTopic("https://www.zhihu.com/topic/19776749/hot", 2); err != nil {
+		t.Fatalf("%s\n", err)
 	}
 }
 

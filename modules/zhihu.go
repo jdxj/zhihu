@@ -8,16 +8,19 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 	"zhihu/utils"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/astaxie/beego/logs"
 )
 
 const (
 	collectURLToken = iota + 1
 	collectTopicID
+	collectTopic
 )
 
 const (
@@ -25,6 +28,10 @@ const (
 	FollowerAPI    = `https://www.zhihu.com/api/v4/members/%s/followers?include=data[*].answer_count,articles_count,gender,follower_count,is_followed,is_following,badge[?(type=best_answerer)].topics&offset=0&limit=20`
 	UserSumInfoAPI = `https://www.zhihu.com/api/v4/members/%s?include=allow_message,is_followed,is_following,is_org,is_blocking,employments,answer_count,follower_count,articles_count,gender,badge[?(type=best_answerer)].topics`
 	TopicIDAPI     = `https://www.zhihu.com/api/v3/topics/%s/children`
+)
+
+const (
+	TopicWebPage = `https://www.zhihu.com/topic/%s/hot`
 )
 
 const (
@@ -295,7 +302,7 @@ func (zh *ZhiHu) getFolloweeOrFollower(url string) (*PagingFollowee, error) {
 
 		pf := &PagingFollowee{}
 		if err := json.Unmarshal(data, pf); err != nil {
-			logs.Error("error when get followee or follower, data: %s, err: %s", data, err)
+			logs.Error("error when get followee or follower, url: %s, data: %s, err: %s", url, data, err)
 
 			if strings.HasPrefix(err.Error(), "invalid character") {
 				// 第一次也统计到重试次数中
@@ -578,7 +585,7 @@ func (zh *ZhiHu) getTopicID(topicIDURL string) (*PagingTopic, error) {
 
 		pt := &PagingTopic{}
 		if err := json.Unmarshal(data, pt); err != nil {
-			logs.Error("error when get topic id: data: %s, err: %s", data, err)
+			logs.Error("error when get topic id: url: %s, data: %s, err: %s", topicIDURL, data, err)
 
 			if strings.HasPrefix(err.Error(), "invalid character") {
 				retryCount++
@@ -614,4 +621,111 @@ type Topic struct {
 	AvatarURL    string `json:"avatar_url"`
 	Type         string `json:"type"`
 	ID           string `json:"id"`
+}
+
+func (zh *ZhiHu) CollectTopic() {
+	var offset uint64
+	tp, err := zh.dataSource.GetTopicProgress()
+	if err == sql.ErrNoRows {
+		offset = 0
+	} else if err != nil {
+		logs.Error("%s", err)
+		return
+	} else {
+		if offset, err = zh.dataSource.GetTopicIDOffset(tp.TopicID); err != nil {
+			logs.Error("%s", err)
+			return
+		}
+	}
+
+	ticker := time.NewTicker(zh.pauseDuration)
+	defer ticker.Stop()
+
+loop:
+	for {
+		select {
+		case <-zh.stop:
+			logs.Info("stop collect topic")
+			break loop
+		case <-ticker.C:
+		}
+
+		ti, err := zh.dataSource.GetTopicID(offset)
+		if err == sql.ErrNoRows {
+			logs.Info("topic id get gone when collect topic")
+			break loop
+		} else if err != nil {
+			logs.Error("%s", err)
+			break loop
+		}
+
+		startTopicURL := fmt.Sprintf(TopicWebPage, ti.TopicID)
+		if err := zh.crawlTopic(startTopicURL, ti.ID); err != nil {
+			logs.Error("%s", err)
+		}
+		offset++
+	}
+
+	ti, err := zh.dataSource.GetTopicID(offset)
+	if err == sql.ErrNoRows {
+		ti = &TopicID{
+			ID: 1,
+		}
+		logs.Warn("topic id get gone when will save topicProgress")
+	} else if err != nil {
+		ti = &TopicID{
+			ID: 1,
+		}
+		logs.Warn("topic id get gone when will save topicProgress: %s", err)
+	}
+
+	topicProgress := &TopicProgress{
+		TopicID: ti.ID,
+	}
+	if err := zh.dataSource.InsertTopicProgress(topicProgress); err != nil {
+		logs.Error("error when insert topicProgress: %s", err)
+	}
+}
+
+func (zh *ZhiHu) crawlTopic(webPageURL string, id uint64) error {
+	// todo: 是否有重试逻辑
+	req, err := utils.NewRequestWithUserAgent("GET", webPageURL, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := zh.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	tt := &TopicTable{
+		TopicID: id,
+	}
+
+	selection := doc.Find(".NumberBoard-itemValue")
+	if value, ok := selection.First().Attr("title"); ok {
+		count, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("error when strconv topic follower count, topicID: %d, title: %s, err: %s",
+				id, value, err)
+		}
+		tt.FollowerCount = count
+	}
+
+	if value, ok := selection.Last().Attr("title"); ok {
+		count, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("error when strconv topic question count, topicID: %d, title: %s, err: %s",
+				id, value, err)
+		}
+		tt.QuestionCount = count
+	}
+
+	return zh.dataSource.InsertTopic(tt)
 }
