@@ -300,6 +300,7 @@ func (zh *ZhiHu) getFolloweeOrFollower(url string) (*PagingFollowee, error) {
 			if strings.HasPrefix(err.Error(), "invalid character") {
 				// 第一次也统计到重试次数中
 				retryCount++
+				logs.Debug("get followee or follower retry count: %d", retryCount)
 				if retryCount >= retryCountLimit {
 					logs.Error("retry count over")
 					return nil, err
@@ -581,6 +582,7 @@ func (zh *ZhiHu) getTopicID(topicIDURL string) (*PagingTopic, error) {
 
 			if strings.HasPrefix(err.Error(), "invalid character") {
 				retryCount++
+				logs.Debug("get topic id retry count: %d: ", retryCount)
 				if retryCount >= retryCountLimit {
 					logs.Error("retry count over")
 					return nil, err
