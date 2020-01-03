@@ -116,6 +116,8 @@ func (zh *ZhiHu) Start() {
 		go zh.sendURLTokenAmountRegularly()
 	case collectTopicID:
 		go zh.CollectTopicID()
+	case collectTopic:
+		go zh.CollectTopic()
 	default:
 		logs.Warn("unexpected start mode")
 	}
@@ -661,7 +663,8 @@ loop:
 
 		startTopicURL := fmt.Sprintf(TopicWebPage, ti.TopicID)
 		if err := zh.crawlTopic(startTopicURL, ti.ID); err != nil {
-			logs.Error("%s", err)
+			logs.Error("error when crawlTopic, url: %s, topic id: %d err: %s",
+				startTopicURL, ti.ID, err)
 		}
 		offset++
 	}
