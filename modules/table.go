@@ -122,3 +122,20 @@ func (tp *TopicProgress) ToInsert() []interface{} {
 	fields = append(fields, tp.TopicID)
 	return fields
 }
+
+type Industry struct {
+	ID   uint64
+	Name string
+}
+
+func (ind *Industry) ToScan() []interface{} {
+	var fields []interface{}
+
+	fields = append(fields, &ind.ID)
+	fields = append(fields, &ind.Name)
+	return fields
+}
+
+// todo: 实现
+type People struct {
+}

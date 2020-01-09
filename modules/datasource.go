@@ -13,7 +13,8 @@ const (
 	topicIDTable          = "topicID"
 	topicIDProgressTable  = "topicIDProgress"
 	topicTable            = "topic"
-	topicProgress         = "topicProgress"
+	topicProgressTable    = "topicProgress"
+	industryTable         = "industry"
 )
 
 func NewDataSource(config *MySQLConfig) (*DataSource, error) {
@@ -211,16 +212,40 @@ func (ds *DataSource) InsertTopic(tt *TopicTable) error {
 }
 
 func (ds *DataSource) GetTopicProgress() (*TopicProgress, error) {
-	query := fmt.Sprintf(`SELECT id,topicID FROM %s ORDER BY id DESC LIMIT 1`, topicProgress)
+	query := fmt.Sprintf(`SELECT id,topicID FROM %s ORDER BY id DESC LIMIT 1`, topicProgressTable)
 	row := ds.db.QueryRow(query)
 	tp := &TopicProgress{}
 	return tp, row.Scan(tp.ToScan()...)
 }
 
 func (ds *DataSource) InsertTopicProgress(tp *TopicProgress) error {
-	query := fmt.Sprintf(`INSERT INTO %s (topicID) VALUES (?)`, topicProgress)
+	query := fmt.Sprintf(`INSERT INTO %s (topicID) VALUES (?)`, topicProgressTable)
 	if _, err := ds.db.Exec(query, tp.ToInsert()...); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (ds *DataSource) InsertIndustry(industry string) (uint64, error) {
+	db := ds.db
+
+	querySelect := fmt.Sprintf(`SELECT id,name FROM %s WHERE name=?`, industryTable)
+	queryInsert := fmt.Sprintf(`INSERT INTO %s (name) VALUES (?)`, industryTable)
+
+	row := db.QueryRow(querySelect, industry)
+
+	ind := &Industry{}
+	err := row.Scan(ind.ToScan()...)
+	if err == sql.ErrNoRows {
+		if res, err := db.Exec(queryInsert, industry); err != nil {
+			return 0, err
+		} else {
+			id, err := res.LastInsertId()
+			return uint64(id), err
+		}
+	} else if err != nil {
+		return 0, err
+	} else {
+		return ind.ID, nil
+	}
 }
