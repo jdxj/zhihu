@@ -626,6 +626,10 @@ type Topic struct {
 }
 
 func (zh *ZhiHu) CollectTopic() {
+	defer func() {
+		close(zh.stopFinish)
+	}()
+
 	var offset uint64
 	tp, err := zh.dataSource.GetTopicProgress()
 	if err == sql.ErrNoRows {
