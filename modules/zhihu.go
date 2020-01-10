@@ -21,6 +21,7 @@ const (
 	collectURLToken = iota + 1
 	collectTopicID
 	collectTopic
+	collectPeople
 )
 
 const (
@@ -119,6 +120,8 @@ func (zh *ZhiHu) Start() {
 		go zh.CollectTopicID()
 	case collectTopic:
 		go zh.CollectTopic()
+	case collectPeople:
+		go zh.CollectPeople()
 	default:
 		logs.Warn("unexpected start mode")
 	}
@@ -130,8 +133,6 @@ func (zh *ZhiHu) CollectURLToken() {
 	}()
 
 	ds := zh.dataSource
-	// todo: 是否在这里关闭数据库?
-	defer ds.db.Close()
 
 	// 确保有一条数据
 	if err := ds.InsertURLTokens([]string{zh.config.OwnURLToken}); err != nil {
@@ -224,6 +225,8 @@ func (zh *ZhiHu) Stop() {
 	select {
 	case <-zh.stopFinish:
 	}
+
+	zh.dataSource.Close()
 	logs.Info("zhihu stop finish")
 }
 
@@ -413,8 +416,8 @@ type Badge struct {
 }
 
 type Employment struct {
-	Job     *Job     `json:"job"`
-	Company *Company `json:"company"`
+	Job     Job     `json:"job"`
+	Company Company `json:"company"`
 }
 
 type Job struct {
@@ -441,8 +444,6 @@ func (zh *ZhiHu) CollectTopicID() {
 	}()
 
 	ds := zh.dataSource
-	// todo: 是否在这里关闭数据库?
-	defer ds.db.Close()
 
 	rootTopicID := &TopicID{
 		TopicID: zh.config.RootTopicID,
@@ -643,6 +644,7 @@ func (zh *ZhiHu) CollectTopic() {
 			logs.Error("%s", err)
 			return
 		}
+		logs.Info("load topicProgress succes")
 	}
 
 	ticker := time.NewTicker(zh.pauseDuration)
@@ -736,6 +738,77 @@ func (zh *ZhiHu) crawlTopic(webPageURL string, id uint64) error {
 	}
 
 	return zh.dataSource.InsertTopic(tt)
+}
+
+func (zh *ZhiHu) CollectPeople() {
+	defer func() {
+		close(zh.stopFinish)
+	}()
+
+	ds := zh.dataSource
+
+	var offset uint64
+	pp, err := ds.GetPeopleProgress()
+	if err == sql.ErrNoRows {
+		offset = 0
+	} else if err != nil {
+		logs.Error("%s", err)
+		return
+	} else {
+		if offset, err = ds.GetURLTokenOffset(pp.URLTokenID); err != nil {
+			logs.Error("%s", err)
+			return
+		}
+		logs.Info("load peopleProgress success")
+	}
+
+	ticker := time.NewTicker(zh.pauseDuration)
+	defer ticker.Stop()
+
+loop:
+	for {
+		select {
+		case <-zh.stop:
+			logs.Info("stop collect people")
+			break loop
+		case <-ticker.C:
+		}
+
+		ut, err := ds.GetURLToken(offset)
+		if err == sql.ErrNoRows {
+			logs.Info("urlToken get gone when collect people")
+			break loop
+		} else if err != nil {
+			logs.Error("%s", err)
+			break loop
+		}
+
+		if err := zh.crawlPeople(ut.ID, ut.URLToken); err != nil {
+			logs.Error("error when crawlPeople, urlToken: %s, err: %s",
+				ut.URLToken, err)
+		}
+		offset++
+	}
+
+	ut, err := ds.GetURLToken(offset)
+	if err == sql.ErrNoRows {
+		ut = &URLToken{
+			ID: 1,
+		}
+		logs.Warn("urlToken get gone when will save peopleProgress")
+	} else if err != nil {
+		ut = &URLToken{
+			ID: 1,
+		}
+		logs.Warn("urlToken get gone when will save peopleProgress: %s", err)
+	}
+
+	pp = &PeopleProgress{
+		URLTokenID: ut.ID,
+	}
+	if err := ds.InsertPeopleProgress(pp); err != nil {
+		logs.Error("error when insert peopleProgress: %s", err)
+	}
 }
 
 func (zh *ZhiHu) crawlPeople(urlTokenID uint64, urlToken string) error {

@@ -226,3 +226,20 @@ func (ds *DataSource) InsertPeople(people *People) error {
 	_, err := ds.db.Exec(query, people.ToInsert()...)
 	return err
 }
+
+func (ds *DataSource) GetPeopleProgress() (*PeopleProgress, error) {
+	query := fmt.Sprintf(`SELECT id,urlTokenID FROM %s ORDER BY id DESC LIMIT 1`, peopleProgressTable)
+	pp := &PeopleProgress{}
+	row := ds.db.QueryRow(query)
+	return pp, row.Scan(pp.ToScan()...)
+}
+
+func (ds *DataSource) InsertPeopleProgress(pp *PeopleProgress) error {
+	if pp == nil {
+		return fmt.Errorf("found invalid peopleProgress when insert")
+	}
+
+	query := fmt.Sprintf("INSERT INTO %s (urlTokenID) VALUES (?)", peopleProgressTable)
+	_, err := ds.db.Exec(query, pp.URLTokenID)
+	return err
+}

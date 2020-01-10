@@ -139,20 +139,20 @@ func (ind *Industry) ToScan() []interface{} {
 // todo: 实现
 type People struct {
 	URLTokenID    uint64
-	Name          string        `json:"name"`
-	Headline      string        `json:"headline"`
-	Description   string        `json:"description"`
-	Gender        int           `json:"gender"`
-	FolloweeCount uint64        `json:"followingCount"`
-	FollowerCount uint64        `json:"followerCount"`
-	AnswerCount   uint64        `json:"answerCount"`
-	QuestionCount uint64        `json:"questionCount"`
-	ArticlesCount uint64        `json:"articlesCount"`
-	ColumnsCount  uint64        `json:"columnsCount"`
-	Business      *Business     `json:"business"`
-	Locations     []*Location   `json:"locations"`
-	Educations    []*Education  `json:"educations"`
-	Employments   []*Employment `json:"employments"`
+	Name          string       `json:"name"`
+	Headline      string       `json:"headline"`
+	Description   string       `json:"description"`
+	Gender        int          `json:"gender"`
+	FolloweeCount uint64       `json:"followingCount"`
+	FollowerCount uint64       `json:"followerCount"`
+	AnswerCount   uint64       `json:"answerCount"`
+	QuestionCount uint64       `json:"questionCount"`
+	ArticlesCount uint64       `json:"articlesCount"`
+	ColumnsCount  uint64       `json:"columnsCount"`
+	Business      Business     `json:"business"`
+	Locations     []Location   `json:"locations"`
+	Educations    []Education  `json:"educations"`
+	Employments   []Employment `json:"employments"`
 }
 
 func (p *People) ToInsert() []interface{} {
@@ -174,9 +174,7 @@ func (p *People) ToInsert() []interface{} {
 	var entrance, graduation int
 
 	// 行业
-	if p.Business != nil {
-		industry = p.Business.Name
-	}
+	industry = p.Business.Name
 	fields = append(fields, industry)
 
 	// 住址
@@ -212,10 +210,10 @@ type Location struct {
 }
 
 type Education struct {
-	School         *School `json:"school"`
-	Major          *Major  `json:"major"`
-	EntranceYear   int     `json:"entranceYear"`
-	GraduationYear int     `json:"graduationYear"`
+	School         School `json:"school"`
+	Major          Major  `json:"major"`
+	EntranceYear   int    `json:"entranceYear"`
+	GraduationYear int    `json:"graduationYear"`
 }
 
 type School struct {
@@ -235,6 +233,6 @@ func (pp *PeopleProgress) ToScan() []interface{} {
 	var fields []interface{}
 
 	fields = append(fields, &pp.ID)
-	fields = append(fields, &pp.ID)
+	fields = append(fields, &pp.URLTokenID)
 	return fields
 }
