@@ -28,6 +28,7 @@ const (
 	FollowerAPI    = `https://www.zhihu.com/api/v4/members/%s/followers?include=data[*].answer_count,articles_count,gender,follower_count,is_followed,is_following,badge[?(type=best_answerer)].topics&offset=0&limit=20`
 	UserSumInfoAPI = `https://www.zhihu.com/api/v4/members/%s?include=allow_message,is_followed,is_following,is_org,is_blocking,employments,answer_count,follower_count,articles_count,gender,badge[?(type=best_answerer)].topics`
 	TopicIDAPI     = `https://www.zhihu.com/api/v3/topics/%s/children`
+	PeopleAPI      = `https://www.zhihu.com/people/%s/activities`
 )
 
 const (
@@ -735,4 +736,49 @@ func (zh *ZhiHu) crawlTopic(webPageURL string, id uint64) error {
 	}
 
 	return zh.dataSource.InsertTopic(tt)
+}
+
+func (zh *ZhiHu) crawlPeople(urlTokenID uint64, urlToken string) error {
+	// todo: 是否有重试逻辑
+	urlTokenURL := fmt.Sprintf(PeopleAPI, urlToken)
+	req, err := utils.NewRequestWithUserAgent("GET", urlTokenURL, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := zh.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return err
+	}
+	selection := doc.Find("#js-initialData")
+	script := selection.Text()
+
+	startKey := fmt.Sprintf(`"%s":`, urlToken)
+	startKeyLen := len(startKey)
+	startIndex := strings.Index(script, startKey)
+	if startIndex < 0 {
+		return fmt.Errorf("not found script start index: %s", urlToken)
+	}
+
+	endKey := fmt.Sprintf(`,"%s"`, "selfRecommend")
+	endIndex := strings.Index(script, endKey)
+	if endIndex < 0 {
+		return fmt.Errorf("not found script end index: %s", urlToken)
+	}
+
+	script = script[startIndex+startKeyLen:endIndex] + "}"
+
+	people := &People{}
+	if err := json.Unmarshal([]byte(script), people); err != nil {
+		return err
+	}
+	people.URLTokenID = urlTokenID
+
+	return zh.dataSource.InsertPeople(people)
 }

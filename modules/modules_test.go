@@ -56,7 +56,9 @@ func TestNewZhiHu(t *testing.T) {
 		t.Fatalf("%s", err)
 	}
 
-	_ = zh
+	if err := zh.crawlPeople(3, "liaoxuefeng"); err != nil {
+		t.Fatalf("%s", err)
+	}
 }
 
 func TestURLParse(t *testing.T) {

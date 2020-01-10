@@ -16,6 +16,8 @@ const (
 	topicTable            = "topic"
 	topicProgressTable    = "topicProgress"
 	industryTable         = "industry"
+	peopleTable           = "people"
+	peopleProgressTable   = "peopleProgress"
 )
 
 func NewDataSource(config *MySQLConfig) (*DataSource, error) {
@@ -92,19 +94,14 @@ FROM %s ORDER BY id DESC LIMIT 1`, urlTokenProgressTable)
 func (ds *DataSource) InsertURLTokenProgress(utp *URLTokenProgress) error {
 	query := fmt.Sprintf(`INSERT INTO %s (urlTokenID,nextFolloweeURL,nextFollowerURL) VALUES (?,?,?)`,
 		urlTokenProgressTable)
-	if _, err := ds.db.Exec(query, utp.ToInsert()...); err != nil {
-		return err
-	}
-	return nil
+	_, err := ds.db.Exec(query, utp.ToInsert()...)
+	return err
 }
 
 func (ds *DataSource) Truncate(tableName string) error {
 	query := fmt.Sprintf(`TRUNCATE TABLE %s`, tableName)
-	if _, err := ds.db.Exec(query); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := ds.db.Exec(query)
+	return err
 }
 
 func (ds *DataSource) CountURLToken() (count uint64, err error) {
@@ -160,10 +157,8 @@ FROM %s ORDER BY id DESC LIMIT 1`, topicIDProgressTable)
 
 func (ds *DataSource) InsertTopicIDProgress(tip *TopicIDProgress) error {
 	query := fmt.Sprintf(`INSERT INTO %s (topicID,nextTopicIDURL) VALUES (?,?)`, topicIDProgressTable)
-	if _, err := ds.db.Exec(query, tip.ToInsert()...); err != nil {
-		return err
-	}
-	return nil
+	_, err := ds.db.Exec(query, tip.ToInsert()...)
+	return err
 }
 
 func (ds *DataSource) InsertTopic(tt *TopicTable) error {
@@ -181,10 +176,8 @@ func (ds *DataSource) InsertTopic(tt *TopicTable) error {
 	}
 
 	queryInsert := fmt.Sprintf(`INSERT INTO %s (topicID,followerCount,questionCount) VALUES (?,?,?)`, topicTable)
-	if _, err := db.Exec(queryInsert, tt.TopicID, tt.FollowerCount, tt.QuestionCount); err != nil {
-		return err
-	}
-	return nil
+	_, err := db.Exec(queryInsert, tt.TopicID, tt.FollowerCount, tt.QuestionCount)
+	return err
 }
 
 func (ds *DataSource) GetTopicProgress() (*TopicProgress, error) {
@@ -196,10 +189,8 @@ func (ds *DataSource) GetTopicProgress() (*TopicProgress, error) {
 
 func (ds *DataSource) InsertTopicProgress(tp *TopicProgress) error {
 	query := fmt.Sprintf(`INSERT INTO %s (topicID) VALUES (?)`, topicProgressTable)
-	if _, err := ds.db.Exec(query, tp.ToInsert()...); err != nil {
-		return err
-	}
-	return nil
+	_, err := ds.db.Exec(query, tp.ToInsert()...)
+	return err
 }
 
 func (ds *DataSource) InsertIndustry(industry string) (uint64, error) {
@@ -224,4 +215,14 @@ func (ds *DataSource) InsertIndustry(industry string) (uint64, error) {
 	} else {
 		return ind.ID, nil
 	}
+}
+
+func (ds *DataSource) InsertPeople(people *People) error {
+	if people == nil {
+		return fmt.Errorf("invalid people data")
+	}
+
+	query := fmt.Sprintf(`INSERT INTO %s (urlTokenID,name,headline,description,gender,followeeCount,followerCount,answerCount,questionCount,articlesCount,columnsCount,industry,address,school,major,entranceYear,graduationYear,company,job) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, peopleTable)
+	_, err := ds.db.Exec(query, people.ToInsert()...)
+	return err
 }
