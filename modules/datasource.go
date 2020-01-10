@@ -3,6 +3,7 @@ package modules
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -46,13 +47,6 @@ func (ds *DataSource) Close() error {
 func (ds *DataSource) InsertURLTokens(urlTokens []string) error {
 	db := ds.db
 
-	querySelect := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE urlToken=?`, urlTokenTable)
-	stmtSelect, err := db.Prepare(querySelect)
-	if err != nil {
-		return err
-	}
-	defer stmtSelect.Close()
-
 	queryInsert := fmt.Sprintf(`INSERT INTO %s (urlToken) VALUES (?)`, urlTokenTable)
 	stmtInsert, err := db.Prepare(queryInsert)
 	if err != nil {
@@ -61,16 +55,10 @@ func (ds *DataSource) InsertURLTokens(urlTokens []string) error {
 	defer stmtInsert.Close()
 
 	for _, urlToken := range urlTokens {
-		row := stmtSelect.QueryRow(urlToken)
-		var count int
-		if err := row.Scan(&count); err != nil {
-			return err
-		}
-		if count != 0 {
-			continue
-		}
-
 		if _, err := stmtInsert.Exec(urlToken); err != nil {
+			if strings.HasPrefix(err.Error(), "Error 1062: Duplicate entry") {
+				continue
+			}
 			return err
 		}
 	}
@@ -129,13 +117,6 @@ func (ds *DataSource) CountURLToken() (count uint64, err error) {
 func (ds *DataSource) InsertTopicsID(topicsID []*TopicID) error {
 	db := ds.db
 
-	querySelect := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE topicID=?`, topicIDTable)
-	stmtSelect, err := db.Prepare(querySelect)
-	if err != nil {
-		return err
-	}
-	defer stmtSelect.Close()
-
 	queryInsert := fmt.Sprintf(`INSERT INTO %s (topicID,name) VALUES (?,?)`, topicIDTable)
 	stmtInsert, err := db.Prepare(queryInsert)
 	if err != nil {
@@ -144,16 +125,10 @@ func (ds *DataSource) InsertTopicsID(topicsID []*TopicID) error {
 	defer stmtInsert.Close()
 
 	for _, topicID := range topicsID {
-		row := stmtSelect.QueryRow(topicID.TopicID)
-		var count int
-		if err := row.Scan(&count); err != nil {
-			return err
-		}
-		if count != 0 {
-			continue
-		}
-
 		if _, err := stmtInsert.Exec(topicID.ToInsert()...); err != nil {
+			if strings.HasPrefix(err.Error(), "Error 1062: Duplicate entry") {
+				continue
+			}
 			return err
 		}
 	}
